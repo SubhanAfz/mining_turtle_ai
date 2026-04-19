@@ -8,6 +8,7 @@ local tunnelWidth = tonumber(args[1])
 local tunnelHeight = tonumber(args[2])
 local targetDistance = tonumber(args[3])
 local safetyBuffer = 16
+local serviceWebhookUrl = ""
 
 if args[4] ~= nil then
     safetyBuffer = tonumber(args[4])
@@ -1102,6 +1103,28 @@ local function pullFuelFromBase(maxPulls)
     return pulls > 0
 end
 
+local function sendServiceWebhook()
+    if serviceWebhookUrl == "" then
+        return false, "webhook not configured"
+    end
+
+    if not http or not http.post or not textutils or not textutils.serializeJSON then
+        return false, "http unavailable"
+    end
+
+    local body = textutils.serializeJSON({ content = "need servicing" })
+    local response, err = http.post(serviceWebhookUrl, body, {
+        ["Content-Type"] = "application/json",
+    })
+
+    if response then
+        response.close()
+        return true
+    end
+
+    return false, err or "webhook failed"
+end
+
 local function retraceToOrigin(mode)
     setAction("returning home", mode or "returning")
 
@@ -1189,6 +1212,8 @@ local function serviceAndResume()
     if not ok then
         return false, err
     end
+
+    sendServiceWebhook()
 
     ok, err = serviceBase(true)
     if not ok then
